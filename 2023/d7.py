@@ -23,7 +23,11 @@ def test_d7():
 
 
 def test_d7_part2():
+    assert Hand("4JJ67", joker=True).type == HandType.Trio
+    assert Hand("QJJQQ", joker=True).type == HandType.Repoker
     assert Hand("QJJQ2", joker=True).type == HandType.Poker
+    assert Hand("QJQ22", joker=True).type == HandType.FullHouse
+    assert Hand("4J567", joker=True).type == HandType.Duo
 
     assert Hand("33332", joker=True) > Hand("2AAAA", joker=True)
     assert Hand("77888", joker=True) > Hand("77788", joker=True)
@@ -71,12 +75,11 @@ class Hand:
         return f"{self._line} {self.type}"
 
     def calc_hand_type(self, hand):
-        duos = 0
-        trios = 0
-        poker = 0
-        jokers = hand.count(0)
+        # [number of independent, # duos, # trios, # poker, # repoker]
+        eqs = [1, 0, 0, 0, 0]
         hand = sorted(hand)
         if self.joker:
+            jokers = hand.count(0)
             hand = [i for i in hand if i]
             if not hand:
                 return HandType.Repoker
@@ -90,53 +93,43 @@ class Hand:
                     continue
 
             card = c
-            if equals == 2:
-                duos += 1
-            if equals == 3:
-                trios += 1
-            if equals == 4:
-                poker += 1
-            if equals == 5:
-                return HandType.Repoker
-
+            eqs[equals - 1] += 1
             equals = 1
 
-        if poker:
-            if self.joker and jokers:
-                return HandType.Repoker
-            return HandType.Poker
-
-        if trios and duos:
-            return HandType.FullHouse
-
-        if trios:
-            if self.joker and jokers:
-                if jokers == 2:
-                    return HandType.Repoker
-                return HandType.Poker
-            return HandType.Trio
-
-        if duos == 2:
-            if self.joker and jokers:
-                return HandType.FullHouse
-            return HandType.DoubleDuo
-        if duos:
-            if self.joker and jokers:
-                if jokers == 3:
-                    return HandType.Repoker
-                if jokers == 2:
-                    return HandType.Poker
-                return HandType.Trio
-            return HandType.Duo
+        if eqs.pop():
+            return HandType.Repoker
 
         if self.joker and jokers:
-            if jokers == 4:
-                return HandType.Repoker
-            if jokers == 3:
-                return HandType.Poker
-            if jokers == 2:
-                return HandType.Trio
+            # Add each joker to the best hand, if there's a trio, it's a poker,
+            # if it's a duo it's a trio, etc
+            #
+            # Just add one to the next item in eqs array and decrease the
+            # number in the current.
+            for _i in range(jokers):
+                for j in range(1, len(eqs) + 1):
+                    if not eqs[-j]:
+                        continue
+                    if eqs[-j]:
+                        if j == 1:
+                            return HandType.Repoker
+                        eqs[-j + 1] += 1
+                        eqs[-j] -= 1
+                        break
+
+        if eqs[3]:
+            return HandType.Poker
+
+        if eqs[2] and eqs[1]:
+            return HandType.FullHouse
+
+        if eqs[2]:
+            return HandType.Trio
+
+        if eqs[1] == 2:
+            return HandType.DoubleDuo
+        if eqs[1]:
             return HandType.Duo
+
         return HandType.One
 
     def __lt__(self, other):
