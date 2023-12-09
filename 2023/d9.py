@@ -46,13 +46,12 @@ class History:
         return numbers[-1]
 
     def past(self, numbers=None):
+        """
+        Just reverse the numbers and that works
+        """
         if numbers is None:
             numbers = self.numbers
-
-        diffs = self.diffs(numbers)
-        if [i for i in diffs if i]:
-            return numbers[0] - self.past(diffs)
-        return numbers[0]
+        return self.prediction(list(reversed(numbers)))
 
     def diffs(self, numbers):
         diffs = []
