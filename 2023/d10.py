@@ -188,7 +188,7 @@ class Loop:
 
     def add(self, point):
         self.points.append(point)
-        self.pm[(point.x, point.y)] = p
+        self.pm[(point.x, point.y)] = point
 
     def _area_lines(self):
         # Remove the rect lines, that points are not relevant for the
