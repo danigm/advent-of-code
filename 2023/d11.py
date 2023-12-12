@@ -37,20 +37,29 @@ def test_part1():
     assert p.distance(p.galaxies[7], p.galaxies[8]) == 5
 
     assert len(p.pairs()) == 36
+
+    p = D11(example)
     assert p.solve_p1() == 374
 
 
 def test_part2():
     p = D11(example)
-    assert p.solve_p2() == 0
+    p.expand(10)
+    assert len(p.pairs()) == 36
+    assert sum(p.distance(*i) for i in p.pairs()) == 1030
+    p = D11(example)
+    p.expand(100)
+    assert sum(p.distance(*i) for i in p.pairs()) == 8410
 
 
 class D11(Problem):
     def solve_p1(self):
+        self.expand()
         return sum(self.distance(*p) for p in self.pairs())
 
     def solve_p2(self):
-        return 0
+        self.expand(1_000_000)
+        return sum(self.distance(*p) for p in self.pairs())
 
     def pairs(self):
         return list(itertools.combinations(self.galaxies, 2))
@@ -62,32 +71,54 @@ class D11(Problem):
 
         return d
 
-    def expand(self):
+    def visualize(self):
+        for r in range(self.rows):
+            for c in range(self.columns):
+                if [r, c] in self.galaxies:
+                    print("#", end="")
+                else:
+                    print(".", end="")
+
+    def expand(self, time=2):
         """
         Expand the universe, any row or column without galaxies is
         expanded, twice as big.
         """
 
+        if self.expanded:
+            return
+
         for r in reversed(self.emptyrows):
             for g in self.galaxies:
                 if g[0] > r:
-                    g[0] += 1
+                    g[0] += time - 1
 
         for c in reversed(self.emptycols):
             for i, g in enumerate(self.galaxies):
                 if g[1] > c:
-                    g[1] += 1
+                    g[1] += time - 1
+
+        self.rows += len(self.emptyrows) * (time - 1)
+        self.columns += len(self.emptycols) * (time - 1)
+        self.expanded = True
 
 
     def parseinput(self, lines):
         data = super().parseinput(lines)
 
+        self.expanded = False
+        self.rows = 0
+        self.columns = 0
         self.universe = data
         self.galaxies = []
         # material rows and columns, rows and colums with some galaxy
         # in it
         self.mrows = []
         self.mcols = []
+
+        self.rows = len(self.universe)
+        self.columns = len(self.universe[0])
+
         for r, row in enumerate(self.universe):
             for c, column in enumerate(row):
                 if column == "#":
@@ -106,4 +137,5 @@ if __name__ == "__main__":
 
     p = D11("d11.data")
     print(p.solve_p1())
+    p = D11("d11.data")
     print(p.solve_p2())
