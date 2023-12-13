@@ -1,3 +1,5 @@
+import pprint
+import re
 import itertools
 from base import Problem
 
@@ -20,8 +22,10 @@ def test_part1():
     assert not p.match("#.#.#.#", [1,1,3])
     assert not p.match("#.#.###.#", [1,1,3])
 
-    assert set(p.possibilities("???.###")) == set(["....###", ".#..###", "..#.###", "#...###", "###.###", "##..###", "#.#.###", ".##.###"])
-    assert set(p.possibilities(".??..??.")) == set(["........", "..#.....", ".#......",  ".##.....", ".....#..", "..#..#..", ".#...#..",  ".##..#..", ".....##.", "..#..##.", ".#...##.",  ".##..##.", "......#.", "..#...#.", ".#....#.", ".##...#."])
+    assert set(p.possibilities2("???.###")) == set(["....###", ".#..###", "..#.###", "#...###", "###.###", "##..###", "#.#.###", ".##.###"])
+    assert set(p.possibilities2(".??..??.")) == set(["........", "..#.....", ".#......",  ".##.....", ".....#..", "..#..#..", ".#...#..",  ".##..#..", ".....##.", "..#..##.", ".#...##.",  ".##..##.", "......#.", "..#...#.", ".#....#.", ".##...#."])
+
+    assert p.possibilities("???.###", [1,1,3]) == ["#.#.###"]
 
     assert p.arrangements(p.springs[0]) == 1
     assert p.arrangements(p.springs[1]) == 4
@@ -32,9 +36,21 @@ def test_part1():
     assert p.solve_p1() == 21
 
 
+def test_pos():
+    p = D12(example)
+    s1 = p.arrangements(("???#????.#???????",[2, 1, 6]))
+    s2 = p.arrangements2(("???#????.#???????",[2, 1, 6]))
+    assert s1 == s2
+
+
 def test_part2():
     p = D12(example)
-    assert p.solve_p2() == 0
+    assert p.unfold(".#", [1]) == (".#?" * 4 + ".#", [1] * 5)
+    assert p.unfold("???.###", [1,1,3]) == ("???.###?" * 4 + "???.###", [1,1,3] * 5)
+
+    assert p.arrangements(("????.#...#...", [4,1,1]), False) == 1
+    assert p.arrangements(("????.#...#...", [4,1,1]), True) == 16
+    assert p.solve_p2() == 525152
 
 
 class D12(Problem):
@@ -42,28 +58,73 @@ class D12(Problem):
         return sum(self.arrangements(r) for r in self.springs)
 
     def solve_p2(self):
-        return 0
+        return sum(self.arrangements(r, True) for r in self.springs)
 
-    def arrangements(self, row):
+    def unfold(self, springs, correction):
+        return "?".join([springs] * 5), correction * 5
+
+    def arrangements(self, row, unfold=False):
+        springs, correction = row
+        print(springs, correction, unfold)
+
+        if unfold:
+            s, c = self.unfold(springs, correction)
+            return len(self.possibilities(s, c))
+
+        valid = self.possibilities(springs, correction)
+        n = len(valid)
+        return n
+
+    def possibilities(self, springs, correction, regex=None):
+        try:
+            unknown = springs.index("?")
+        except ValueError:
+            return [springs]
+
+        nbroken = sum(correction)
+        ndots = len(springs) - nbroken
+        known_dots = springs.count(".")
+        known_broken = springs.count("#")
+        unknown_dots = ndots - known_dots
+        unknown_broken = nbroken - known_broken
+
+        pos = []
+        if regex is None:
+            regex = self.get_regex(correction)
+
+        p1 = springs[:unknown] + "." + springs[unknown + 1:]
+        p2 = springs[:unknown] + "#" + springs[unknown + 1:]
+
+        if regex.match(p1):
+            pos += self.possibilities(p1, correction, regex)
+        if regex.match(p2):
+            pos += self.possibilities(p2, correction, regex)
+
+        return pos
+
+    def get_regex(self, correction):
+        p1 = r"[#\?]"
+
+        regex = r"^[\.\?]*"
+        for i, c in enumerate(correction):
+            regex += p1 + r"{" + str(c) + "}"
+            if i == len(correction) - 1:
+                regex += r"[\.\?]*$"
+            else:
+                regex += r"[\.\?]+"
+
+        return re.compile(regex)
+
+    def arrangements2(self, row):
         springs, correction = row
 
-        pos = self.possibilities(springs)
+        pos = self.possibilities2(springs)
         valid = [i for i in pos if self.match(i, correction)]
+        print(valid)
         return len(valid)
 
-    def possibilities2(self, springs, correction):
-        groups = [i for i in springs.split(".") if i]
-        if len(groups) == len(correction):
-            # TODO: do combinations in groups with "?"
-            pass
-        else:
-            # TODO: Try to split big groups using the correction
-            # numbers
-            pass
-
-        return []
-
-    def possibilities(self, springs):
+    def possibilities2(self, springs):
+        """ Use combinations to generate all possibilities """
         p = []
 
         unknowns = []
@@ -118,5 +179,4 @@ if __name__ == "__main__":
 
     p = D12("d12.data")
     print(p.solve_p1())
-    p = D12("d12.data")
     print(p.solve_p2())
