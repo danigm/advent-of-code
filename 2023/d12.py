@@ -1,3 +1,4 @@
+from functools import lru_cache
 import pprint
 import re
 import itertools
@@ -25,7 +26,7 @@ def test_part1():
     assert set(p.possibilities2("???.###")) == set(["....###", ".#..###", "..#.###", "#...###", "###.###", "##..###", "#.#.###", ".##.###"])
     assert set(p.possibilities2(".??..??.")) == set(["........", "..#.....", ".#......",  ".##.....", ".....#..", "..#..#..", ".#...#..",  ".##..#..", ".....##.", "..#..##.", ".#...##.",  ".##..##.", "......#.", "..#...#.", ".#....#.", ".##...#."])
 
-    assert p.possibilities("???.###", [1,1,3]) == ["#.#.###"]
+    assert p.possibilities("???.###", (1,1,3)) == ["#.#.###"]
 
     assert p.arrangements(p.springs[0]) == 1
     assert p.arrangements(p.springs[1]) == 4
@@ -38,9 +39,10 @@ def test_part1():
 
 def test_pos():
     p = D12(example)
-    s1 = p.arrangements(("???#????.#???????",[2, 1, 6]))
-    s2 = p.arrangements2(("???#????.#???????",[2, 1, 6]))
-    assert s1 == s2
+    assert p.arrangements((".??..??...?##.", [1,1,3])) == 4
+    # s1 = p.arrangements(("???#????.#???????",[2, 1, 6]))
+    # s2 = p.arrangements3(("???#????.#???????",[2, 1, 6]))
+    # assert s1 == s2
 
 
 def test_part2():
@@ -65,16 +67,85 @@ class D12(Problem):
 
     def arrangements(self, row, unfold=False):
         springs, correction = row
+
+        if unfold:
+            s, c = self.unfold(springs, correction)
+            return self.npos(s, tuple(c))
+        return self.npos(springs, tuple(correction))
+
+    @lru_cache
+    def npos_broken(self, springs, correction, group):
+        # get the full group
+        g = springs[:group]
+        # Check that the group is valid, contains # or ? and it's the
+        # correct size.
+        if "." in g or len(g) < group:
+            return 0
+        # If this is the last group
+        if len(springs) == group:
+            # Then there should not be more groups
+            return int(len(correction) == 1)
+
+        # it should be and end of group
+        if springs[group] in ".?":
+            # we continue calculating recursively the next group
+            return self.npos(springs[group+1:], correction[1:])
+
+        # in other case there are more # so this doesn't match the
+        # group
+        return 0
+
+    @lru_cache
+    def npos(self, springs, correction):
+        """
+        Not my code, just copy the solution from reddit after trying
+        different solutions without luck.
+        https://www.reddit.com/r/adventofcode/comments/18hbbxe/2023_day_12python_stepbystep_tutorial_with_bonus/
+        """
+
+        # no more groups
+        if not correction:
+            return int("#" not in springs)
+
+        # no more chars
+        if not springs:
+            return 0
+
+        group = correction[0]
+        char = springs[0]
+
+        n1 = 0
+        n2 = 0
+        if char in ".?":
+            # Calculate possibilities if this is a dot
+            n1 = self.npos(springs[1:], correction)
+        if char in "#?":
+            # Calculate possibilities if this is a #
+            n2 = self.npos_broken(springs, correction, group)
+
+        # if the char is ? we add the two, in other case one of them
+        # will be zero so just one branch.
+        return n1 + n2
+
+    def arrangements3(self, row, unfold=False):
+        """
+        This is the best solution that I was able to implement without
+        the help of reddit, it's a recursive version, check all
+        branches using regular expressions.
+
+        Not valid to use the cache because the correction is passed
+        completely so there's no repetition
+        """
+        springs, correction = row
         print(springs, correction, unfold)
 
         if unfold:
             s, c = self.unfold(springs, correction)
-            return len(self.possibilities(s, c))
+            return len(self.possibilities(s, tuple(c)))
 
-        valid = self.possibilities(springs, correction)
-        n = len(valid)
-        return n
+        return len(self.possibilities(springs, tuple(correction)))
 
+    @lru_cache
     def possibilities(self, springs, correction, regex=None):
         try:
             unknown = springs.index("?")
@@ -116,6 +187,10 @@ class D12(Problem):
         return re.compile(regex)
 
     def arrangements2(self, row):
+        """
+        My first attempt, do all combinations. This is too slow
+        """
+
         springs, correction = row
 
         pos = self.possibilities2(springs)
