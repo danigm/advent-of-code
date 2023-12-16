@@ -23,7 +23,7 @@ def test_part1():
 
 def test_part2():
     p = D16(example)
-    assert p.solve_p2() == 0
+    assert p.solve_p2() == 51
 
 
 class Top:
@@ -92,10 +92,10 @@ class Right:
 
 
 class D16(Problem):
-    def solve_p1(self):
+    def solve_p1(self, r=0, c=0, direction=Right):
         n = 0
         todo = set()
-        todo.add((0, 0, Right))
+        todo.add((r, c, direction))
         while todo:
             r, c, direction = todo.pop()
             n1, ntodo = self.beam(r, c, direction)
@@ -105,7 +105,34 @@ class D16(Problem):
         return n
 
     def solve_p2(self):
-        return 0
+        max = 0
+        nr = len(self.data)
+        nc = len(self.data[0])
+        for j in range(nc):
+            # Top row
+            self.reset()
+            n = self.solve_p1(0, j, Bottom)
+            max = n if n > max else max
+            # Bottom row
+            self.reset()
+            n = self.solve_p1(nc - 1, j, Top)
+            max = n if n > max else max
+
+        for i in range(len(self.data)):
+            # Left Column
+            self.reset()
+            n = self.solve_p1(i, 0, Right)
+            max = n if n > max else max
+            # Right Column
+            self.reset()
+            n = self.solve_p1(i, nr - 1, Left)
+            max = n if n > max else max
+
+        return max
+
+    def reset(self):
+        self.loops = {}
+        self.energized = {}
 
     def beam(self, r=0, c=0, direction=Right):
         todo = set()
