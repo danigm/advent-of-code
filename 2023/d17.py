@@ -20,12 +20,15 @@ example = """
 4322674655533
 """
 
-example_xs = """
-24134323113
-32154535356
-32552456542
-34465858454
+
+example2 = """
+111111111111
+999999999991
+999999999991
+999999999991
+999999999991
 """
+
 
 HEAT_LOSS_LIMIT = 3
 
@@ -37,34 +40,37 @@ Right = 4
 
 
 def test_part1():
-    # p = D17(example_xs)
-    # assert p.solve_p1() == 47
     p = D17(example)
     assert p.solve_p1() == 102
 
 
 def test_part2():
     p = D17(example)
-    assert p.solve_p2() == 0
+    assert p.solve_p2() == 94
+    p = D17(example2)
+    assert p.solve_p2() == 71
 
 
 class D17(Problem):
     def solve_p1(self):
         return self.minimize_heat_loss()
 
+    def solve_p2(self):
+        return self.minimize_heat_loss(limit1=4, limit2=10)
+
     # Dijkstra alg
     # https://en.wikipedia.org/wiki/Dijkstra's_algorithm
-    def minimize_heat_loss(self):
+    def minimize_heat_loss(self, limit1=1, limit2=HEAT_LOSS_LIMIT):
         dist = {}
         queue = []
         for i in range(self.rows):
             for j in range(self.cols):
                 for d in [Top, Bottom, Left, Right]:
-                    for s in range(1, 4):
+                    for s in range(1, limit2+1):
                         v = (i, j, d, s)
                         dist[v] = math.inf
 
-        for i in range(4):
+        for i in range(1, limit2+1):
             dist[(0,0,0,i)] = 0
         queue.append((0,0,0,0,1))
 
@@ -87,16 +93,22 @@ class D17(Problem):
             if d == Bottom:
                 neighbors = [(r+1,c,Bottom,sb), (r,c+1,Right,sr), (r,c-1,Left,sl)]
             if d == Left:
-                neighbors = [(r+1,c,Bottom,sb), (r-1,c,Top,st), (r,c-1,Left,sl)]
+                neighbors = [(r,c-1,Left,sl), (r+1,c,Bottom,sb), (r-1,c,Top,st)]
             if d == Right:
-                neighbors = [(r+1,c,Bottom,sb), (r-1,c,Top,st), (r,c+1,Right,sr)]
+                neighbors = [(r,c+1,Right,sr), (r+1,c,Bottom,sb), (r-1,c,Top,st)]
+
+            if s < limit1 and d:
+                neighbors = neighbors[0:1]
 
             for v in neighbors:
-                nr, nc, d,s = v
-                if s >= 4:
+                nr, nc, d, s = v
+                if s >= limit2 + 1:
                     continue
 
                 if nr < 0 or nc < 0 or nr >= self.rows or nc >= self.cols:
+                    continue
+
+                if (nr, nc) == self.destination and s < limit1:
                     continue
 
                 alt = distance + self.data[nr][nc]
@@ -104,9 +116,6 @@ class D17(Problem):
                     dist[v] = alt
                     # sort by min dist[u]
                     heapq.heappush(queue, (alt, nr, nc, d, s))
-
-    def solve_p2(self):
-        return 0
 
     def parseinput(self, lines):
         data = tuple(tuple(int(j) for j in tuple(i.strip())) for i in lines if i.strip())
