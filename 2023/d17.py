@@ -1,3 +1,4 @@
+import heapq
 import math
 from functools import lru_cache
 from base import Problem
@@ -19,55 +20,25 @@ example = """
 4322674655533
 """
 
+example_xs = """
+24134323113
+32154535356
+32552456542
+34465858454
+"""
+
 HEAT_LOSS_LIMIT = 3
 
 
-class Top:
-    @classmethod
-    def next(cls, r, c):
-        return r - 1, c
-    @classmethod
-    def left(cls):
-        return Left
-    @classmethod
-    def right(cls):
-        return Right
-
-class Bottom:
-    @classmethod
-    def next(cls, r, c):
-        return r + 1, c
-    @classmethod
-    def left(cls):
-        return Right
-    @classmethod
-    def right(cls):
-        return Left
-
-class Left:
-    @classmethod
-    def next(cls, r, c):
-        return r, c - 1
-    @classmethod
-    def left(cls):
-        return Bottom
-    @classmethod
-    def right(cls):
-        return Top
-
-class Right:
-    @classmethod
-    def next(cls, r, c):
-        return r, c + 1
-    @classmethod
-    def left(cls):
-        return Top
-    @classmethod
-    def right(cls):
-        return Bottom
+Top = 1
+Bottom = 2
+Left = 3
+Right = 4
 
 
 def test_part1():
+    # p = D17(example_xs)
+    # assert p.solve_p1() == 47
     p = D17(example)
     assert p.solve_p1() == 102
 
@@ -77,133 +48,62 @@ def test_part2():
     assert p.solve_p2() == 0
 
 
-class Node:
-    def __init__(self, r, c, steps, dir):
-        self.r = r
-        self.c = c
-        self.steps = steps
-        self.dir = dir
-
-    def __eq__(self, other):
-        if isinstance(other, tuple):
-            return (self.r, self.c) == tuple
-        return (self.r, self.c) == (other.r, other.c)
-
-    def __lt__(self, other):
-        return (self.r, self.c) < (other.r, other.c)
-
-    def __gt__(self, other):
-        return (self.r, self.c) > (other.r, other.c)
-
-    def __hash__(self):
-        return hash((self.r, self.c))
-
-    def __repr__(self):
-        return repr((self.r, self.c, self.steps))
-
-
 class D17(Problem):
     def solve_p1(self):
-        return self.minimize_heat_loss(0, 0, dir=Right)
+        return self.minimize_heat_loss()
 
-    def rank(self, queue, r, c):
-        r = []
-        for i in queue:
-            r, c = i.next(r, c)
-            pos = self.data[r][c]
-            r.append(pos)
+    # Dijkstra alg
+    # https://en.wikipedia.org/wiki/Dijkstra's_algorithm
+    def minimize_heat_loss(self):
+        dist = {}
+        queue = []
+        for i in range(self.rows):
+            for j in range(self.cols):
+                for d in [Top, Bottom, Left, Right]:
+                    for s in range(1, 4):
+                        v = (i, j, d, s)
+                        dist[v] = math.inf
 
-    def heat_loss(self, came_from, current):
-        n = self.data[current[0]][current[1]]
-        while current in came_from:
-            v = self.data[current[0]][current[1]]
-            print(current, v, n)
-            current = came_from[current]
-            n += self.data[current[0]][current[1]]
-        return n
+        for i in range(4):
+            dist[(0,0,0,i)] = 0
+        queue.append((0,0,0,0,1))
 
-    def h(self, r, c, came_from):
-        n = self.heat_loss(came_from, (r, c))
-        dr, dc = self.destination
-        return (abs(dr - r) + abs(dc - c)) + n
+        while queue:
+            # vertex with min dist[u]
+            u = heapq.heappop(queue)
 
-    # A*, https://en.wikipedia.org/wiki/A*_search_algorithm
-    def minimize_heat_loss(self, r, c, dir=Right):
-        open_set = [Node(r,c, 0, dir)]
-        came_from = {}
-        # cost of the cheapest path, defaults to infinity
-        g_score = {}
-        g_score[(r,c)] = 0
+            distance, r, c, d, s = u
+            sb = s + 1 if d == Bottom else 1
+            st = s + 1 if d == Top else 1
+            sr = s + 1 if d == Right else 1
+            sl = s + 1 if d == Left else 1
 
-        # f_score[n] = g_score[n] + h(n)
-        f_score = {}
-        # Do not count the start block
-        f_score[(r,c)] = 0
-        block = self.data[r][c]
+            if (r, c) == self.destination:
+                return distance
 
-        while open_set:
-            # get the value with lowest f_score, open_set is sorted by f_score
-            node = open_set.pop(0)
-            nd = node.dir
-            steps = node.steps
-            current = (node.r, node.c)
-            if current == self.destination:
-                if open_set:
-                    print("NOT COMPLETE", open_set)
-                    print(f_score)
-                return self.heat_loss(came_from, current)
+            neighbors = [(r+1,c,Bottom,sb), (r,c+1,Right,sr)]
+            if d == Top:
+                neighbors = [(r-1,c,Top,st), (r,c+1,Right,sr), (r,c-1,Left,sl)]
+            if d == Bottom:
+                neighbors = [(r+1,c,Bottom,sb), (r,c+1,Right,sr), (r,c-1,Left,sl)]
+            if d == Left:
+                neighbors = [(r+1,c,Bottom,sb), (r-1,c,Top,st), (r,c-1,Left,sl)]
+            if d == Right:
+                neighbors = [(r+1,c,Bottom,sb), (r-1,c,Top,st), (r,c+1,Right,sr)]
 
-            neighbors = [(nd, steps + 1), (nd.left(), 1), (nd.right(), 1)]
-
-            for d, st in neighbors:
-                if st > 3:
-                    # ignore this possibility
+            for v in neighbors:
+                nr, nc, d,s = v
+                if s >= 4:
                     continue
-                nr, nc = d.next(*current)
+
                 if nr < 0 or nc < 0 or nr >= self.rows or nc >= self.cols:
-                    # Out of bounds
                     continue
-                block = self.data[nr][nc]
-                print(d, block, (nr,nc), st)
-                print(open_set)
 
-                tentative_g_score = g_score.get(current, math.inf) + block
-                if tentative_g_score < g_score.get((nr, nc), math.inf):
-                    came_from[(nr, nc)] = current
-                    g_score[(nr, nc)] = tentative_g_score
-                    f_score[(nr, nc)] = tentative_g_score + self.h(nr, nc, came_from)
-                    if (nr, nc) not in open_set:
-                        open_set = sorted([Node(nr, nc, st, d)] + open_set, key=lambda x: f_score.get(x, math.inf))
-
-        return math.inf
-
-    # Recursive approach
-    #@lru_cache
-    #def minimize_heat_loss(self, r, c, direction=Right, steps=0):
-    #    print(r, c, direction, steps)
-    #    if r < 0 or c < 0 or r >= self.rows or c >= self.cols:
-    #        return math.inf
-    #    block = self.data[r][c]
-    #    if (r, c) == self.destination:
-    #        return block
-
-    #    n1, n2, n3 = math.inf, math.inf, math.inf
-
-    #    # Continue
-    #    if steps < HEAT_LOSS_LIMIT:
-    #        # can continue same direction
-    #        nr, nc = direction.next(r, c)
-    #        n1 = self.minimize_heat_loss(nr, nc, direction, steps + 1)
-    #    # Turn left
-    #    nd = direction.left()
-    #    nr, nc = nd.next(r, c)
-    #    n2 = self.minimize_heat_loss(nr, nc, nd, 1)
-    #    # Turn right
-    #    nd = direction.right()
-    #    nr, nc = nd.next(r, c)
-    #    n3 = self.minimize_heat_loss(nr, nc, nd, 1)
-
-    #    return block + min(n1, n2, n3)
+                alt = distance + self.data[nr][nc]
+                if alt < dist[v]:
+                    dist[v] = alt
+                    # sort by min dist[u]
+                    heapq.heappush(queue, (alt, nr, nc, d, s))
 
     def solve_p2(self):
         return 0
@@ -217,7 +117,7 @@ class D17(Problem):
 
 
 if __name__ == "__main__":
-    print("Day 17: ")
+    print("Day 17: Clumsy Crucible")
 
     p = D17("d17.data")
     print(p.solve_p1())
