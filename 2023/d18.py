@@ -39,28 +39,27 @@ def test_part1():
 
 def test_part2():
     p = D18(example)
-    assert p.solve_p2() == 0
+    assert p.solve_p2() == 952408144115
 
 
 class Hole:
     def __init__(self, line=None):
         self.dir = "U"
         self.n = 1
-        self.color = "000000"
-        self.r, self.g, self.b = 0, 0, 0
         self.parse_line(line)
 
     def parse_line(self, line):
         if line is None:
             return
 
+        dirs = {"0": "R", "1": "D", "2": "L", "3": "U"}
+
         d, n, color = line.split()
         self.dir = d
         self.n = int(n)
         self.color = color[2:-1]
-        self.r = int(self.color[0:2], base=16)
-        self.g = int(self.color[2:4], base=16)
-        self.b = int(self.color[4:6], base=16)
+        self.nn = int(self.color[:5], base=16)
+        self.nd = dirs[self.color[-1]]
 
     def __repr__(self):
         return f"{self.dir} {self.n} (#{self.color})"
@@ -75,7 +74,11 @@ class D18(Problem):
         return self.area(self.vertex) + r + d + 1
 
     def solve_p2(self):
-        return 0
+        r = sum([h.nn for h in self.holes if h.nd == "R"])
+        d = sum([h.nn for h in self.holes if h.nd == "D"])
+        l = sum([h.nn for h in self.holes if h.nd == "L"])
+        u = sum([h.nn for h in self.holes if h.nd == "U"])
+        return self.area(self.vertex2) + r + d + 1
 
     # https://www.mathsisfun.com/geometry/area-irregular-polygons.html
     def area(self, coords):
@@ -90,57 +93,39 @@ class D18(Problem):
         mc = sorted(coords, key=lambda x: x[1])[-1][1]
         return int(t/2)
 
-    def visualize(self):
-        print()
-        mr = sorted(self.map.keys())[-1][0]
-        mc = sorted(self.map.keys(), key=lambda x: x[1])[-1][1]
-        for r in range(mr + 1):
-            for c in range(mc + 1):
-                n = self.map.get((r,c), 0)
-                print("#" if n else ".", end="")
-            print()
-
-    def normalize(self):
-        mr = sorted(self.map.keys())[0][0]
-        mc = sorted(self.map.keys(), key=lambda x: x[1])[0][1]
-
-        if mr >= 0 and mc >= 0:
-            return
-
-        mr = abs(mr)
-        mc = abs(mc)
-        vertex = []
-        newmap = {}
-        # minimum always (0, 0)
-        for (r, c) in self.vertex:
-            newmap[(r + mr, c + mc)] = 1
-            vertex.append((r + mr, c + mc))
-
-        self.map = newmap
-        self.vertex = vertex
-
     def parseinput(self, lines):
         data = tuple(i.strip() for i in lines if i.strip())
 
         self.holes = []
         self.holes = [Hole(i) for i in data]
-        self.map = {}
-        self.map[(0,0)] = 1
         self.vertex = [(0, 0)]
+        self.vertex2 = [(0, 0)]
         r, c = 0, 0
+        r2, c2 = 0, 0
         for h in self.holes:
-            for i in range(1, h.n + 1):
-                if h.dir == "R":
-                    nr, nc = r, c+i
-                if h.dir == "D":
-                    nr, nc = r+i, c
-                if h.dir == "U":
-                    nr, nc = r-i, c
-                if h.dir == "L":
-                    nr, nc = r, c-i
-                self.map[(nr, nc)] = 1
+            i = h.n
+            if h.dir == "R":
+                nr, nc = r, c+i
+            if h.dir == "D":
+                nr, nc = r+i, c
+            if h.dir == "U":
+                nr, nc = r-i, c
+            if h.dir == "L":
+                nr, nc = r, c-i
             r, c = nr, nc
             self.vertex.append((r, c))
+
+            i = h.nn
+            if h.nd == "R":
+                nr, nc = r2, c2+i
+            if h.nd == "D":
+                nr, nc = r2+i, c2
+            if h.nd == "U":
+                nr, nc = r2-i, c2
+            if h.nd == "L":
+                nr, nc = r2, c2-i
+            r2, c2 = nr, nc
+            self.vertex2.append((r2, c2))
 
         return data
 
