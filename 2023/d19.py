@@ -30,7 +30,17 @@ def test_part1():
 
 def test_part2():
     p = D19(example)
-    assert p.solve_p2() == 0
+
+    state = {"x": (4000, 1), "m": (4000, 1), "a": (4000, 1), "s": (4000, 1)}
+    opts = p.workflow_options("pv", state)
+    st = {"x": (4000, 1), "m": (4000, 1), "a": (1716, 1), "s": (4000, 1)}
+    assert opts == total(st)
+
+    state = {"x": (4000, 1), "m": (4000, 1), "a": (4000, 1), "s": (4000, 1)}
+    opts = p.workflow_options("in", state)
+    assert opts == 167_409_079_868_000
+
+    assert p.solve_p2() == 167409079868000
 
 
 class Part:
@@ -58,6 +68,24 @@ class Workflow:
 
         self.name = name
         self.rules = rule.split(",")
+        # Store all rules with ranges
+        # (variable, max, min, next workflow, flag)
+        # The flag could be 0, 1 or 2 => (0 default rule, 1 "<", 2 ">")
+        self.rules2 = []
+
+        for rule in self.rules:
+            # default rule
+            if ":" not in rule:
+                self.rules2.append((None, 4000, 1, rule, 0))
+                break
+
+            cond, workflow = rule.split(":")
+            if "<" in cond:
+                var, value = cond.split("<")
+                self.rules2.append((var, int(value), 1, workflow, 1))
+            elif ">" in cond:
+                var, value = cond.split(">")
+                self.rules2.append((var, 4000, int(value), workflow, 2))
 
     def consider(self, part):
         for rule in self.rules:
@@ -77,6 +105,14 @@ class Workflow:
 
     def __repr__(self):
         return self.name
+
+
+def total(state):
+    n = 1
+    for i in "xmas":
+        smax, smin = state[i]
+        n *= (smax - smin + 1)
+    return n
 
 
 class D19(Problem):
@@ -99,7 +135,63 @@ class D19(Problem):
 
     def solve_p2(self):
         # min = 1, max = 4000
-        return 0
+        state = {"x": (4000, 1), "m": (4000, 1), "a": (4000, 1), "s": (4000, 1)}
+        return self.workflow_options("in", state)
+
+    def workflow_options(self, workflow, state):
+        """
+        Work with (max, min) ranges. The state stores all the limist
+        for each variable, for example, all possible parts is:
+
+          state = {"x": (4000, 1), "m": (4000, 1), "a": (4000, 1), "s": (4000, 1)}
+
+        Checks all rules with the current state, if some matches with
+        the state range then it goes forward recursively, checking
+        following workflows And also limiting the state to apply to
+        the following rule.
+        """
+        rules = self.workflows[workflow].rules2
+        n = 0
+        # Accepted rule new limits
+        ns1 = {k: v for k, v in state.items()}
+        # The rest of the parts in the state range, this is used to
+        # check next rules
+        ns2 = {k: v for k, v in state.items()}
+        for rule in rules:
+            rvar, rmax, rmin, nw, op = rule
+            # default rule, no condition, so accept all
+            if op == 0:
+                break
+
+            smax, smin = state[rvar]
+            if smin < rmax and smax > rmin:
+                # Accept, go for the next
+                # <
+                if op == 1:
+                    ns1[rvar] = (rmax - 1, smin)
+                    ns2[rvar] = (smax, rmax)
+                # >
+                else:
+                    ns1[rvar] = (smax, rmin + 1)
+                    ns2[rvar] = (rmin, smin)
+                break
+
+            # This rule doesn't apply, so try the next one
+            continue
+
+        # Accepted, we add all the possibilities in the accepted range
+        if nw == "A":
+            n += total(ns1)
+
+        # other states, check the same workflow but for the rest of
+        # parts
+        if ns2 != state:
+            n += self.workflow_options(workflow, ns2)
+
+        # Going forward
+        if nw not in "AR":
+            n += self.workflow_options(nw, ns1)
+        return n
 
     def parseinput(self, lines):
         data = []
