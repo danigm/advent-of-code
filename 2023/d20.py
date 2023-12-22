@@ -35,11 +35,6 @@ def test_part1():
     assert p.solve_p1() == 11687500
 
 
-def test_part2():
-    p = D20(example)
-    assert p.solve_p2() == 0
-
-
 Hight = 1
 Low = 0
 
@@ -107,20 +102,56 @@ class D20(Problem):
         return self.button(1000)
 
     def solve_p2(self):
-        return 0
+        # &hb -> rx (sends 0 when all inputs are 1)
+        # &js -> hb
+        # &zb -> hb
+        # &bs -> hb
+        # &rr -> hb
+
+        # The hb will send a 0 when all inputs sends a 1. We look for
+        # the loop when each of the input modules sends a 1 and then
+        # multiply all to get the loop when all sends 1 at the same
+        # time.
+        final_states = [("js", 1), ("zb", 1), ("bs", 1), ("rr", 1)]
+        inloop = {"js": 0, "zb": 0, "bs": 0, "rr": 0}
+        i = 0
+        while final_states:
+            i += 1
+            found = self._press_button(final_states)
+            for f in found:
+                inloop[f] = i
+
+        n = 1
+        for m in inloop.values():
+            n *= m
+        return n
 
     def button(self, repeat):
         for i in range(repeat):
-            nexts = [("button", 0)]
-            while nexts:
-                nn = []
-                for n, s in nexts:
-                    if not n in self.mods or s is None:
-                        continue
-                    nn += self.mods[n].send(s, self.mods)
-                nexts = nn
+            self._press_button()
+
         l, h = self.recount()
         return l * h
+
+    def _press_button(self, final_states=None):
+        nexts = [("button", 0)]
+        found = []
+        while nexts:
+            nn = []
+            for n, s in nexts:
+                if not n in self.mods or s is None:
+                    continue
+                nn += self.mods[n].send(s, self.mods)
+            nexts = nn
+
+            # part 2
+            if final_states:
+                for st in final_states:
+                    if st in nexts:
+                        final_states.remove(st)
+                        found.append(st[0])
+
+        return found
 
     def recount(self):
         history = [0, 0]
@@ -165,4 +196,5 @@ if __name__ == "__main__":
 
     p = D20("d20.data")
     print(p.solve_p1())
+    p = D20("d20.data")
     print(p.solve_p2())
