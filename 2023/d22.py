@@ -24,6 +24,7 @@ def test_part1():
     assert s[4].base == 3
     assert p.disintegrate(s) == 5
     p = D22(example)
+    s, l = p.settle()
     assert p.solve_p1() == 5
 
 
@@ -62,6 +63,8 @@ class Brick:
 
         self.base = min(self._start[2], self._end[2])
         self.top = max(self.start[2], self.end[2])
+        self._supported = None
+        self._supporting = None
 
     def __repr__(self):
         return f"{self.start}~{self.end}"
@@ -87,15 +90,33 @@ class Brick:
         self.top = max(self.start[2], self.end[2])
 
     def supporting(self, bricks, exclude=None):
+        if self._supporting is None:
+            self._supporting = []
+            for i in bricks:
+                if i == self:
+                    continue
+                if self.top + 1 == i.base and self.collides(i):
+                    self._supporting.append(i)
         if exclude is None:
-            exclude = [self]
-        return [i for i in bricks if i not in exclude and self.top + 1 == i.base and self.collides(i)]
+            return self._supporting
+
+        return list(filter(lambda x: x not in exclude, self._supporting))
 
     def supported(self, bricks, exclude=None):
-        if exclude is None:
-            exclude = [self]
-        return [i for i in bricks if i not in exclude and i.top + 1 == self.base and self.collides(i)]
+        if self._supported is None:
+            self._supported = []
+            for i in bricks:
+                if i == self:
+                    continue
+                if i.top + 1 == self.base and self.collides(i):
+                    self._supported.append(i)
 
+        if exclude is None:
+            return self._supported
+
+        return list(filter(lambda x: x not in exclude, self._supported))
+
+    @lru_cache
     def collides(self, other):
         sx1, sy1, sz1 = self.start
         ex1, ey1, ez1 = self.end
@@ -135,14 +156,12 @@ class Brick:
 
 class D22(Problem):
     def solve_p1(self):
-        s, l = self.settle()
-        return self.disintegrate(s)
+        return self.disintegrate(self.s)
 
     def solve_p2(self):
-        s, l = self.settle()
         t = 0
-        for b in s:
-            t += self.chain_reaction(tuple(sorted(s, key=lambda x: x.top, reverse=True)), b)
+        for b in self.s:
+            t += self.chain_reaction(tuple(self.s), b)
         return t
 
     def settle(self):
@@ -168,6 +187,7 @@ class D22(Problem):
             prevs = sorted(prevs + [brick], key=lambda b: b.top, reverse=True)
             level = prevs[0].top
 
+        self.s, self.l = settled, levels
         return settled, levels
 
     def disintegrate(self, bricks):
@@ -189,10 +209,7 @@ class D22(Problem):
 
     @lru_cache
     def chain_reaction(self, bricks, destroy):
-        level = destroy.base
-        possible = [b for b in bricks if b.base > level]
-
-        to_consider = destroy.supporting(possible)
+        to_consider = destroy.supporting(bricks)
         destroyed = {destroy}
 
         prev = destroy
@@ -201,7 +218,7 @@ class D22(Problem):
             for i in to_consider:
                 if not i.supported(bricks, destroyed | {i}):
                     destroyed.add(i)
-                    new_step += i.supporting(possible)
+                    new_step += i.supporting(bricks)
             to_consider = new_step
 
         return len(destroyed) - 1
@@ -221,5 +238,6 @@ if __name__ == "__main__":
     print("Day 22: Sand Slabs")
 
     p = D22("d22.data")
+    p.settle()
     print(p.solve_p1())
     print(p.solve_p2())
