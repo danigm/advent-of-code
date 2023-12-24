@@ -1,3 +1,4 @@
+from functools import lru_cache
 from collections import defaultdict
 from base import Problem
 
@@ -28,7 +29,13 @@ def test_part1():
 
 def test_part2():
     p = D22(example)
-    assert p.solve_p2() == 0
+    s, l = p.settle()
+    assert p.chain_reaction(tuple(s), s[0]) == 6
+    assert p.chain_reaction(tuple(s), s[-2]) == 1
+    assert p.chain_reaction(tuple(s), s[1]) == 0
+    assert p.chain_reaction(tuple(s), s[2]) == 0
+    assert p.chain_reaction(tuple(s), s[3]) == 0
+    assert p.solve_p2() == 7
 
 
 class Cube(list):
@@ -79,6 +86,16 @@ class Brick:
         self.base = min(self.start[2], self.end[2])
         self.top = max(self.start[2], self.end[2])
 
+    def supporting(self, bricks, exclude=None):
+        if exclude is None:
+            exclude = [self]
+        return [i for i in bricks if i not in exclude and self.top + 1 == i.base and self.collides(i)]
+
+    def supported(self, bricks, exclude=None):
+        if exclude is None:
+            exclude = [self]
+        return [i for i in bricks if i not in exclude and i.top + 1 == self.base and self.collides(i)]
+
     def collides(self, other):
         sx1, sy1, sz1 = self.start
         ex1, ey1, ez1 = self.end
@@ -122,7 +139,11 @@ class D22(Problem):
         return self.disintegrate(s)
 
     def solve_p2(self):
-        return 0
+        s, l = self.settle()
+        t = 0
+        for b in s:
+            t += self.chain_reaction(tuple(sorted(s, key=lambda x: x.top, reverse=True)), b)
+        return t
 
     def settle(self):
         # start at Ground
@@ -152,19 +173,38 @@ class D22(Problem):
     def disintegrate(self, bricks):
         total = set()
         for b in bricks:
-            supporting = [i for i in bricks if i != b and b.top + 1 == i.base and b.collides(i)]
+            supporting = b.supporting(bricks)
             if not supporting:
                 total.add(b)
 
             # check that all supporting bricks are supported by another brick
             all_supported = True
             for s in supporting:
-                supported = [i for i in bricks if i != s and i != b and i.top + 1 == s.base and s.collides(i)]
+                supported = s.supported(bricks, [s, b])
                 all_supported = all_supported and bool(supported)
             if all_supported:
                 total.add(b)
 
         return len(total)
+
+    @lru_cache
+    def chain_reaction(self, bricks, destroy):
+        level = destroy.base
+        possible = [b for b in bricks if b.base > level]
+
+        to_consider = destroy.supporting(possible)
+        destroyed = {destroy}
+
+        prev = destroy
+        while to_consider:
+            new_step = []
+            for i in to_consider:
+                if not i.supported(bricks, destroyed | {i}):
+                    destroyed.add(i)
+                    new_step += i.supporting(possible)
+            to_consider = new_step
+
+        return len(destroyed) - 1
 
     def parseinput(self, lines):
         lines = (l for l in lines if l.strip())
