@@ -93,43 +93,34 @@ class D23(Problem):
             q.add(v)
         dist[source] = 0
         dist[self.end] = math.inf
-        heapq.heappush(queue, (0, source, []))
-        q.add(source)
+        # heapq.heappush(queue, (0, source, tuple()))
+        queue.append((0, source, tuple()))
 
         # while Q is not empty:
         while queue:
             # u ← vertex in Q with min dist[u]
-            u = heapq.heappop(queue)
+            # u = heapq.heappop(queue)
+            u = queue.pop()
             distance, u, path = u
             # remove u from Q
             # q.remove(u)
             # for each neighbor v of u still in Q:
             neighbors = [i for i in graph[u] if i[0] not in path]
 
-            if u == self.end:
-                alt = -self.distance(path + [u])
-                if alt < dist[u]:
-                    dist[u] = alt
+            if self.end in [i[0] for i in neighbors]:
+                neighbors = [i for i in neighbors if i[0] == self.end]
 
             for (v, n) in neighbors:
-                alt = -self.distance(path + [u, v])
                 # alt ← dist[u] + Graph.Edges(u, v)
-                # alt = distance - n
+                alt = distance - n
                 # if alt < dist[v]:
                 if alt < dist[v]:
                     dist[v] = alt
                     prev[v] = u
-                heapq.heappush(queue, (alt, v, path + [u]))
+                # heapq.heappush(queue, (alt, v, path + (u,)))
+                queue.append((alt, v, path + (u,)))
 
         return -dist[self.end]
-
-# 1  S ← empty sequence
-# 2  u ← target
-# 3  if prev[u] is defined or u = source:          // Do something only if the vertex is reachable
-# 4      while u is defined:                       // Construct the shortest path with a stack S
-# 5          insert u at the beginning of S        // Push the vertex onto the stack
-# 6          u ← prev[u]                           // Traverse from target to source
-
 
     # https://en.wikipedia.org/wiki/Longest_path_problem
     def longest_path(self):
