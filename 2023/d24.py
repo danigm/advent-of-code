@@ -1,3 +1,4 @@
+from sympy import symbols, solve
 from base import Problem
 
 
@@ -18,7 +19,7 @@ def test_part1():
 
 def test_part2():
     p = D24(example)
-    assert p.solve_p2() == 0
+    assert p.solve_p2() == 24 + 13 + 10
 
 
 class D24(Problem):
@@ -34,8 +35,52 @@ class D24(Problem):
                     count += 1
         return count
 
+    # https://www.reddit.com/r/adventofcode/comments/18pnycy/comment/kf9l3kw/?utm_source=reddit&utm_medium=web2x&context=3
     def solve_p2(self):
-        return 0
+        hails = self.hails
+        X1, V1 = hails[0]
+        X2, V2 = hails[1]
+        X3, V3 = hails[2]
+
+        # components of hail position vectors - known parameters
+        x1, y1, z1 = X1
+        x2, y2, z2 = X2
+        x3, y3, z3 = X3
+        # components of hail velocity vectors - known parameters
+        vx1, vy1, vz1 = V1
+        vx2, vy2, vz2 = V2
+        vx3, vy3, vz3 = V3
+
+        # position vector components - unknowns
+        x = symbols('x')
+        y = symbols('y')
+        z = symbols('z')
+        # velocity vector components - unknowns
+        vx = symbols('vx')
+        vy = symbols('vy')
+        vz = symbols('vz')
+
+        # equations for the cross products being the null vector
+        equations = [
+            # first hail
+            (y1-y)*(vz1-vz)-(z1-z)*(vy1-vy),
+            (z1-z)*(vx1-vx)-(x1-x)*(vz1-vz),
+            (x1-x)*(vy1-vy)-(y1-y)*(vx1-vx),
+
+            # second hail
+            (y2-y)*(vz2-vz)-(z2-z)*(vy2-vy),
+            (z2-z)*(vx2-vx)-(x2-x)*(vz2-vz),
+            (x2-x)*(vy2-vy)-(y2-y)*(vx2-vx),
+
+            # third hail
+            (y3-y)*(vz3-vz)-(z3-z)*(vy3-vy),
+            (z3-z)*(vx3-vx)-(x3-x)*(vz3-vz),
+            (x3-x)*(vy3-vy)-(y3-y)*(vx3-vx)
+        ]
+
+        solution = solve(equations, [x, y, z, vx, vy, vz], dict=True)[0]
+
+        return solution[x] + solution[y] + solution[z]
 
     # https://en.m.wikipedia.org/wiki/Line%E2%80%93line_intersection
     def intersect(self, h1, h2):
