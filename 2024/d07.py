@@ -36,6 +36,8 @@ def possible(test, eq, ops=OP1):
         x = eq[0]
         for i, o in enumerate(p):
             x = o(x, eq[i+1])
+            if x > test:
+                break
         if x == test:
             return True, test
 
