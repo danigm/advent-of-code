@@ -67,7 +67,7 @@ class D07(Problem):
         n = 0
         with Pool(cpu_count()) as p:
             res = p.starmap(possible, [(k, tuple(v), OP2) for k, *v in self.eqs])
-        
+
         return sum(i for k, i in res if k)
 
     def parseinput(self, lines):
