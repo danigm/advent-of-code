@@ -1,3 +1,4 @@
+import math
 from functools import lru_cache
 from base import Problem
 
@@ -39,6 +40,18 @@ example2 = """
 <^^>>>vv<v>>v<<
 """
 
+example3 = """
+#######
+#...#.#
+#.....#
+#..OO@#
+#..O..#
+#.....#
+#######
+
+<vv<<^^<<^^
+"""
+
 
 def test_part1():
     p = D15(example2)
@@ -49,7 +62,7 @@ def test_part1():
 
 def test_part2():
     p = D15(example)
-    assert p.solve_p2() == 0
+    assert p.solve_p2() == 9021
 
 
 M = {
@@ -104,6 +117,113 @@ def move(robot, state, w, h, movement):
     return robot, state
 
 
+@lru_cache(maxsize=None)
+def move_box(box, state, w, h, movement):
+    bi, bj = box
+    mi, mj = M[movement]
+
+    c = ch(state, w, bi, bj)
+    if c == ".":
+        return True, state
+
+    if c == "[":
+        b1i, b1j = box
+        b2i, b2j = b1i, b1j + 1
+    else:
+        b2i, b2j = box
+        b1i, b1j = b2i, b2j - 1
+
+    n1i, n1j = b1i + mi, b1j + mj
+    n2i, n2j = b2i + mi, b2j + mj
+
+    c1 = ch(state, w, b1i, b1j)
+    c2 = ch(state, w, b2i, b2j)
+    if c1 == "#":
+        return False, state
+
+    if c1 in "[]":
+        old_state = state
+        ok1, ok2 = False, False
+        ok1, state = move_box((n1i, n1j), state, w, h, movement)
+        if ok1:
+            ok2, state = move_box((n2i, n2j), state, w, h, movement)
+            if ok2:
+                st = list(state)
+                chv(st, w, n1i, n1j, "[")
+                chv(st, w, n2i, n2j, "]")
+                chv(st, w, b1i, b1j, ".")
+                chv(st, w, b2i, b2j, ".")
+                state = "".join(st)
+            else:
+                state = old_state
+        else:
+            state = old_state
+        return ok1 and ok2, state
+
+    if c1 == "." and c2 == ".":
+        return True, state
+
+    return False, state
+
+
+@lru_cache(maxsize=None)
+def move2(robot, state, w, h, movement):
+    ri, rj = robot
+    mi, mj = M[movement]
+    ni, nj = ri + mi, rj + mj
+
+    c = ch(state, w, ni, nj)
+
+    if c == "#":
+        # can't move
+        return robot, state
+
+    if c == ".":
+        robot = ni, nj
+        st = list(state)
+        chv(st, w, ri, rj, ".")
+        chv(st, w, ni, nj, "@")
+        state = "".join(st)
+
+    # Left and right
+    if c in "[]" and movement in "<>":
+        ei, ej = ni + mi, nj + mj
+        ei2, ej2 = ei + mi, ej + mj
+        n = 1
+        # find empty space
+        while True:
+            c = ch(state, w, ei, ej)
+            if c == "#":
+                return robot, state
+            if c == ".":
+                st = list(state)
+                chv(st, w, ei, ej, "[" if movement == "<" else "]")
+                for j in range(n):
+                    j = nj + (mj * j)
+                    c = ch(state, w, ni, j)
+                    chv(st, w, ni, j, "]" if c == "[" else "[")
+                chv(st, w, ri, rj, ".")
+                chv(st, w, ni, nj, "@")
+                robot = ni, nj
+                state = "".join(st)
+                break
+            ei, ej = ei + mi, ej + mj
+            ei2, ej2 = ei + mi, ej + mj
+            n += 1
+
+    # Up and down
+    if c in "[]" and movement in "^v":
+        ok, state = move_box((ni, nj), state, w, h, movement)
+        if ok:
+            st = list(state)
+            chv(st, w, ri, rj, ".")
+            chv(st, w, ni, nj, "@")
+            robot = ni, nj
+            state = "".join(st)
+
+    return robot, state
+
+
 def ch(state, w, i, j):
     return state[(i * w) + j]
 
@@ -119,7 +239,7 @@ def pstate(state, w, h):
         print("\n", end="")
 
 
-def sum(state, w, h):
+def sum(state, w, h, box="O"):
     """
     100 * i + j
     """
@@ -127,18 +247,12 @@ def sum(state, w, h):
     s = 0
     for i in range(h):
         for j in range(w):
-            if ch(state, w, i, j) == "O":
+            if ch(state, w, i, j) == box:
                 s += 100 * i + j
     return s
 
 
 class D15(Problem):
-    def sum(self):
-        """
-        100 * i + j
-        """
-        return sum(100 * bi + bj for bi, bj in self.boxes)
-
     def solve_p1(self):
         r, s = self.robot, self.initial
         for m in self.moves:
@@ -147,7 +261,16 @@ class D15(Problem):
         return sum(s, self.w, self.h)
 
     def solve_p2(self):
-        return 0
+        w, h = self.w * 2, self.h
+        ri, rj = self.robot
+
+        r = ri, rj * 2
+        s = self.expanded
+
+        for m in self.moves:
+            r, s = move2(r, s, w, h, m)
+
+        return sum(s, w, h, "[")
 
     def parseinput(self, lines):
         self.robot = (0, 0)
@@ -187,6 +310,7 @@ class D15(Problem):
                     self.moves.append(c)
 
         self.initial = data
+        self.expanded = self.initial.replace("#", "##").replace("O", "[]").replace(".", "..").replace("@", "@.")
         return data
 
 
