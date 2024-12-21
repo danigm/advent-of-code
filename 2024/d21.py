@@ -1,3 +1,19 @@
+"""
+Help from:
+https://github.com/mkern75/AdventOfCodePython/blob/main/year2024/Day21.py
+
+I was unable to solve this one, check for solutions and I found this one that's
+pretty similar to what I was doing.
+
+The key point that I was missing was the recursion that I was doing in a
+different way.
+
+The key point to solve this is to solve the same problem for each subset of
+keys in a lower level, for example:
+    * (<v<A, <<vA, v<<A)
+"""
+
+
 from itertools import permutations
 from functools import cache
 from base import Problem
@@ -13,7 +29,6 @@ R = (
     "-^A",
     "<v>",
 )
-# TODO: dictionary with distances from each key to all
 
 
 example = """
@@ -71,6 +86,28 @@ def seq(pad, src, dst):
     return set(i for i in p if valid(pad, (sx, sy), i))
 
 
+def all_paths(sequence, pad):
+    r = []
+    pos = "A"
+    for s in sequence:
+        seqs = seq(pad, pos, s)
+        pos = s
+        r.append([x + "A" for x in seqs])
+    return r
+
+
+@cache
+def shortest_seq(sequence, robots=1, pad=N):
+    if robots == 0:
+        return len(sequence)
+
+    res = 0
+    for paths in all_paths(sequence, pad):
+        res += min(shortest_seq(sp, robots - 1, R) for sp in paths)
+
+    return res
+
+
 def test_part1():
     assert seq(N, "A", "0") == set(("<",))
     assert seq(N, "0", "2") == set(("^",))
@@ -78,13 +115,13 @@ def test_part1():
     assert seq(N, "9", "A") == set(("vvv", ))
     assert seq(N, "A", "1") == set(("<^<", "^<<"))
     assert seq(N, "4", "0") == set(("v>v", ">vv"))
-    assert len(shortest_seq("029A", robots=1)) == 12
-    assert len(shortest_seq("029A", robots=2)) == 28
-    assert len(shortest_seq("029A", robots=3)) == 68
-    assert len(shortest_seq("980A", robots=3)) == 60
-    assert len(shortest_seq("179A", robots=3)) == 68
-    assert len(shortest_seq("456A", robots=3)) == 64
-    assert len(shortest_seq("379A", robots=3)) == 64
+    assert shortest_seq("029A", 1) == 12
+    assert shortest_seq("029A", 2) == 28
+    assert shortest_seq("029A", 3) == 68
+    assert shortest_seq("980A", 3) == 60
+    assert shortest_seq("179A", 3) == 68
+    assert shortest_seq("456A", 3) == 64
+    assert shortest_seq("379A", 3) == 64
 
     p = D21(example)
     assert p.solve_p1() == 126384
@@ -92,27 +129,7 @@ def test_part1():
 
 def test_part2():
     p = D21(example)
-    assert p.solve_p2() == 0
-
-
-def shortest_seq(sequence, robots=1):
-    if robots == 1:
-        pad = N
-        ss = sequence
-    else:
-        pad = R
-        ss = shortest_seq(sequence, robots=robots - 1)
-
-    r = []
-    pos = "A"
-    for s in ss:
-        # TODO: evaluate all to get the shortest
-        x = seq(pad, pos, s)
-        pos = s
-        r.append(x + "A")
-        
-    s = "".join(r)
-    return s
+    assert p.solve_p2() == 154115708116294
 
 
 class D21(Problem):
@@ -122,11 +139,17 @@ class D21(Problem):
         s = 0
         for i in self.data:
             x = shortest_seq(i, r)
-            s += len(x) * int(i[:-1])
+            s += x * int(i[:-1])
         return s
 
     def solve_p2(self):
-        return 0
+        # Lenght of shortest sequence * numeric part of the code
+        r = 26
+        s = 0
+        for i in self.data:
+            x = shortest_seq(i, r)
+            s += x * int(i[:-1])
+        return s
 
     def parseinput(self, lines):
         data = tuple(i.strip() for i in lines if i.strip())
