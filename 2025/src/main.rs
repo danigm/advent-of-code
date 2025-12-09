@@ -30,6 +30,7 @@ fn main() -> ExitCode {
 
     match day {
         1 => problems::p1::solve(&p),
+        2 => problems::p2::solve(&p),
         _ => println!("Not implemented yet"),
     }
 

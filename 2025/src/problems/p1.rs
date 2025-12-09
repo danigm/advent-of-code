@@ -19,21 +19,22 @@ fn p1(initial: i32, max: i32, rotations: Vec<(i32, i32)>) -> (i32, i32) {
         total += full;
 
         dial = dial + (d * rot);
-        if prev != 0 && dial < 0 {
-            dial = max + dial;
+
+        // Positive to negative, pass by 0
+        if prev > 0 && dial < 0 {
             total += 1;
         }
-        if dial >= max {
-            if dial > max {
-                total += 1;
-            }
-            dial = dial % max;
+
+        if dial < 0 {
+            dial = max + dial;
+        // Complete circle or exactly in 0
+        } else if dial >= max || dial == 0 {
+            total += 1;
         }
+
+        dial = dial % max;
         if dial == 0 {
             count += 1;
-            if rot != 0 {
-                total += 1;
-            }
         }
     }
     (count, total)
@@ -51,13 +52,13 @@ fn transform_data(input: &String) -> Vec<(i32, i32)> {
 }
 
 pub fn solve(p: &problem::Problem) {
-    println!("P1 solution");
+    println!("Day one: Secret Entrance");
 
     let s = String::from(String::from(p.input.as_ref().unwrap()).trim());
     let data = transform_data(&s);
     let solution = p1(50, 100, data);
-    println!("{}", solution.0);
-    println!("{}", solution.1);
+    println!("puzzle 1: {}", solution.0);
+    println!("puzzle 2: {}", solution.1);
 }
 
 #[cfg(test)]
